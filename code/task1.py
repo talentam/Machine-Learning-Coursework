@@ -75,7 +75,7 @@ def initializeEmptyList():
 
 
 # computer the data which does not need to be complete (calculate mean value for existing data)
-def matchData(original_list):
+def averageData(original_list):
     empty_list = initializeEmptyList()
     year_num = ending_year - starting_year + 1
     month_num = ending_month - starting_month + 1
@@ -135,7 +135,7 @@ def meanCalculation(input_list):
 
 # # method 2: polynomial regression to complete missing data
 def polynomial(input_list, degree, max_value):
-    plt.figure(figsize=(30, 24))
+    fig = plt.figure(figsize=(30, 24))
     for i, year in enumerate(input_list):
         # skip the year which did not have data
         if countZero(year) == 6:
@@ -174,7 +174,6 @@ def outputTable(list1, list2, list3, info_list, table_name):
     sheet = wb.create_sheet(table_name)
     sheet.append(['MIDAS', 'LAKE', 'Town(s)', 'STATION', 'Date', 'DEPTH', 'CHLA (mg/L)', 'TEMPERATURE (Centrigrade)', 'Total P (mg/L)'])
     for i in range(0, len(list1) * len(list1[0])):
-        # if list1[i // 6][i % 6][0] != 0 and list2[i // 6][i % 6][0] != 0 and list3[i // 6][i % 6][0] != 0:
         if countZero(list1[i // 6]) < 6:
             # append normal information
             row = ['5448', 'China Lake', 'China, Vassalboro']
@@ -210,26 +209,26 @@ data_cleaning(Chla_list)
 data_cleaning(Temp_list)
 data_cleaning(TotalP_list)
 
-# match data which does not need mean calculation for method 1
+# average the data so that one month contains one record
 print('[INFO] matching data')
-Chla_match_m1 = matchData(Chla_list)
-Temp_match_m1 = matchData(Temp_list)
-TotalP_match_m1 = matchData(TotalP_list)
-# match data which does not need mean calculation for method 2
-Chla_match_m2 = matchData(Chla_list)
-Temp_match_m2 = matchData(Temp_list)
-TotalP_match_m2 = matchData(TotalP_list)
+Chla_avg_m1 = averageData(Chla_list)
+Temp_avg_m1 = averageData(Temp_list)
+TotalP_avg_m1 = averageData(TotalP_list)
+
+Chla_avg_m2 = averageData(Chla_list)
+Temp_avg_m2 = averageData(Temp_list)
+TotalP_avg_m2 = averageData(TotalP_list)
 
 # method 1: mean value calculation
 print('[INFO] mean value calculation')
-Chla_mean = meanCalculation(Chla_match_m1)
-Temp_mean = meanCalculation(Temp_match_m1)
-TotalP_mean = meanCalculation(TotalP_match_m1)
+Chla_mean = meanCalculation(Chla_avg_m1)
+Temp_mean = meanCalculation(Temp_avg_m1)
+TotalP_mean = meanCalculation(TotalP_avg_m1)
 
 # method 2: polynomial regression
-Chla_poly = polynomial(Chla_match_m2, 1, 0.04)
-Temp_poly = polynomial(Temp_match_m2, 2, 25)
-TotalP_poly = polynomial(TotalP_match_m2, 2, 0.04)
+Chla_poly = polynomial(Chla_avg_m2, 1, 0.04)
+Temp_poly = polynomial(Temp_avg_m2, 2, 25)
+TotalP_poly = polynomial(TotalP_avg_m2, 2, 0.04)
 
 # output table to excel
 wb = Workbook()
