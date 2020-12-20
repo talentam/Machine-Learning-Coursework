@@ -2,9 +2,18 @@ from openpyxl import load_workbook, Workbook
 from collections import Counter
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
+from minepy import MINE
+import scipy.stats as stats
+from sklearn.feature_selection import RFE
+from sklearn.linear_model import LinearRegression
+
 
 
 # read worksheet and find out the overlapped year
+from sklearn.svm import SVC
+
+
 def read_worksheet(sheetName):
     # store the all the data in the list
     data_list = []
@@ -135,7 +144,7 @@ def meanCalculation(input_list):
 
 # # method 2: polynomial regression to complete missing data
 def polynomial(input_list, degree, max_value):
-    fig = plt.figure(figsize=(30, 24))
+    # plt.figure(figsize=(30, 24))
     for i, year in enumerate(input_list):
         # skip the year which did not have data
         if countZero(year) == 6:
@@ -157,15 +166,15 @@ def polynomial(input_list, degree, max_value):
                 input_list[i][j] = [max(fx(j + starting_month), 0)]
 
         # plot the regression function
-        plt.subplot(4, 4, i + 1)
-        plt.scatter(x, y, color='black')
-        plt.xticks(fontsize=20)
-        plt.yticks(fontsize=20)
-        plt.plot(np.linspace(starting_month, ending_month, 100), fx(np.linspace(starting_month, ending_month, 100)), 'r-', lw=3)
-        plt.xlim(starting_month-0.3, ending_month+0.3)
-        plt.ylim(0, max_value)
+        # plt.subplot(4, 4, i + 1)
+        # plt.scatter(x, y, color='black')
+        # plt.xticks(fontsize=20)
+        # plt.yticks(fontsize=20)
+        # plt.plot(np.linspace(starting_month, ending_month, 100), fx(np.linspace(starting_month, ending_month, 100)), 'r-', lw=3)
+        # plt.xlim(starting_month-0.3, ending_month+0.3)
+        # plt.ylim(0, max_value)
 
-    plt.show()
+    # plt.show()
     return input_list
 
 
@@ -187,13 +196,83 @@ def outputTable(list1, list2, list3, info_list, table_name):
             # append depth
             row.append(info_list[0][2])
             # append CHLA
-            row.append(list1[i // 6][i % 6][0])
+            row.append(round(list1[i // 6][i % 6][0], 6))
             # append TEMPERATURE
-            row.append(list2[i // 6][i % 6][0])
+            row.append(round(list2[i // 6][i % 6][0], 6))
             # append TotalP
-            row.append(list3[i // 6][i % 6][0])
+            row.append(round(list3[i // 6][i % 6][0], 6))
 
             sheet.append(row)
+
+
+# change the format of the data for the correlation calculation
+def data_preprocessing(list1, list2, list3):
+    x = []
+    y = []
+    z = []
+    skip_year = []
+    for i, year in enumerate(list1):
+        if countZero(year) == 6:
+            skip_year.append(i)
+            continue
+        else:
+            for j, month in enumerate(year):
+                x.append(month[0])
+
+    for i, year in enumerate(list2):
+        if i not in skip_year:
+            for j, month in enumerate(year):
+                y.append(month[0])
+
+    for i, year in enumerate(list3):
+        if i not in skip_year:
+            for j, month in enumerate(year):
+                z.append(month[0])
+
+    return x, y, z
+
+
+def covariance(variable1, variable2):
+    covXY = np.cov(variable1, variable2)[1][0]
+    return covXY
+
+
+def pearson(variable1, variable2):
+    pearson_coefficient = pearsonr(variable1, variable2)[0]
+    return pearson_coefficient
+
+
+def mine(variable1, variable2):
+    m = MINE()
+    m.compute_score(variable1, variable2)
+    return m.mic()
+
+
+def spearman(variable1, variable2):
+
+    return stats.spearmanr(variable1, variable2)[0]
+
+
+def ref(variable1, variable2, variable3):
+    x = []
+    y = []
+    for i in range(len(variable1)):
+        x.append([variable2[i], variable3[i]])
+        y.append([variable1[i]])
+    lr = LinearRegression()
+    rfe = RFE(lr, n_features_to_select=1)
+    rfe.fit(x, y)
+    names = ['temperature', 'TotalP']
+    print(sorted(zip(map(lambda x: round(x, 4), rfe.ranking_), names)))
+
+
+def printRanking(method, temp, totalp):
+    if temp > totalp:
+        print(method + ': temperature (' + str(round(temp, 6)) + ') has higher importance than TotalP (' + str(
+            round(totalp, 6)) + ')')
+    else:
+        print(method + ': TotalP (' + str(round(totalp, 6)) + ') has higher importance than temperature (' + str(
+            round(temp, 6)) + ')')
 
 
 # read the workbook and find overlapped years
@@ -235,6 +314,32 @@ wb = Workbook()
 outputTable(Chla_mean, Temp_mean, TotalP_mean, Chla_list, 'method 1')
 outputTable(Chla_poly, Temp_poly, TotalP_poly, Chla_list, 'method 2')
 wb.save("./lake_data/completeChinaLake.xlsx")
+
+# task 2: using the meaning completed data
+Chla_mean_data, temp_mean_data, TotalP_mean_data = data_preprocessing(Chla_mean, Temp_mean, TotalP_mean)
+
+# Covariance
+cov_Chla_temp = covariance(Chla_mean_data, temp_mean_data)
+cov_Chla_TotalP = covariance(Chla_mean_data, TotalP_mean_data)
+printRanking('Covariance', cov_Chla_temp, cov_Chla_TotalP)
+
+# Pearson correlation coefficient
+Pearson_Chla_temp = pearson(Chla_mean_data, temp_mean_data)
+Pearson_Chla_TotalP = pearson(Chla_mean_data, TotalP_mean_data)
+printRanking('Pearson', Pearson_Chla_temp, Pearson_Chla_TotalP)
+
+# Mutual information and maximal information coefficient (MIC)
+mine_Chla_temp = mine(Chla_mean_data, temp_mean_data)
+mine_Chla_TotalP = mine(Chla_mean_data, TotalP_mean_data)
+printRanking('MIC', mine_Chla_temp, mine_Chla_TotalP)
+
+# Spearman Coefficient
+spearman_Chla_temp = spearman(Chla_mean_data, temp_mean_data)
+spearman_Chla_TotalP = spearman(Chla_mean_data, TotalP_mean_data)
+printRanking('Spearman', spearman_Chla_temp, spearman_Chla_TotalP)
+
+# Recursive feature elimination (RFE)
+ref(Chla_mean_data, temp_mean_data, TotalP_mean_data)
 
 
 
