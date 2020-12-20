@@ -1,9 +1,7 @@
-import datetime
-
-import openpyxl
 from openpyxl import load_workbook, Workbook
-import numpy as np
 from collections import Counter
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 # read worksheet and find out the overlapped year
@@ -52,15 +50,15 @@ def read_workbook(path):
     return Chla_data, Temp_data, TotalP_data, start_year_max, end_year_min, max_depth
 
 
-# remove the rows that some cell is empty or the year is not overlapped or month exceed Apr-Nov
-def data_cleaning(data, year_start, year_end, month_start, month_end, max_depth):
+# remove the rows that some cell is empty or the year is not overlapped or month exceed May-October
+def data_cleaning(data):
     remove_index = []
     for i, value in enumerate(data):
         length = len(value)
-        if value[length-1] is None or value[length-2] is None or value[length-3].year < year_start \
-                or value[length-3].year > year_end or value[length-4] == 2 \
-                or value[length-3].month < month_start or value[length-3].month > month_end \
-                or value[length-2] != max_depth:
+        if value[length-1] is None or value[length-2] is None or value[length-3].year < starting_year \
+                or value[length-3].year > ending_year or value[length-4] == 2 \
+                or value[length-3].month < starting_month or value[length-3].month > ending_month \
+                or value[length-2] != depth:
             remove_index.append(i)
 
     remove_index.reverse()
@@ -68,33 +66,35 @@ def data_cleaning(data, year_start, year_end, month_start, month_end, max_depth)
         data.pop(index)
 
 
-def initializeEmptyList(start_year, end_year, start_month, end_month):
-    rows = end_year - start_year + 1
-    columns = end_month - start_month + 1
+# create empty list to store the data
+def initializeEmptyList():
+    rows = ending_year - starting_year + 1
+    columns = ending_month - starting_month + 1
     empty_list = [[[] for i in range(columns)] for j in range(rows)]
     return empty_list
 
 
-def matchData(original_list, complete_list):
+# computer the data which does not need to be complete (calculate mean value for existing data)
+def matchData(original_list):
+    empty_list = initializeEmptyList()
     year_num = ending_year - starting_year + 1
     month_num = ending_month - starting_month + 1
 
     for row in original_list:
         year = row[1].year - starting_year
         month = row[1].month - starting_month
-        complete_list[year][month].append(row[3])
+        empty_list[year][month].append(row[3])
 
     for i in range(year_num):
         for j in range(month_num):
-            if len(complete_list[i][j]) == 0:
-                complete_list[i][j] = [0]
+            if len(empty_list[i][j]) == 0:
+                empty_list[i][j] = [0]
             else:
-                complete_list[i][j] = [np.mean(complete_list[i][j])]
+                empty_list[i][j] = [np.mean(empty_list[i][j])]
+    return empty_list
 
-    return complete_list
 
-
-# count zero numbers
+# count zero numbers in a list
 def countZero(input_list):
     zero_num = 0
     for i in input_list:
@@ -103,17 +103,17 @@ def countZero(input_list):
     return zero_num
 
 
+# method 1: mean value to complete missing data
 def meanCalculation(input_list):
     month_num = ending_month - starting_month + 1
     for year in input_list:
-        # print(year)
         # count the zero number
         zero_num = countZero(year)
         while 0 < zero_num < 4:
             # check condition of 101
             for i in range(0, month_num-2):
                 if year[i][0] != 0 and year[i+1][0] == 0 and year[i+2][0] != 0:
-                    year[i + 1][0] = (year[i][0] + year[i + 2][0])/2
+                    year[i + 1][0] = max((year[i][0] + year[i + 2][0])/2, 0)
                     zero_num = zero_num - 1
                     if zero_num == 0:
                         break
@@ -122,34 +122,60 @@ def meanCalculation(input_list):
             for i in range(0, month_num - 2):
                 # 110
                 if year[i][0] != 0 and year[i + 1][0] != 0 and year[i + 2][0] == 0:
-                    year[i + 2][0] = 2*year[i + 1][0] - year[i][0]
+                    year[i + 2][0] = max(2*year[i + 1][0] - year[i][0], 0)
                     zero_num = zero_num - 1
                     break
                 # 011
                 elif year[i][0] == 0 and year[i + 1][0] != 0 and year[i + 2][0] != 0:
-                    year[i][0] = 2 * year[i + 1][0] - year[i+2][0]
+                    year[i][0] = max(2 * year[i + 1][0] - year[i+2][0], 0)
                     zero_num = zero_num - 1
                     break
-
-    # remove year without data
-    # remove_index = []
-    # for i, year in enumerate(input_list):
-    #     if countZero(year) > 0:
-    #         remove_index.append(i)
-    #
-    # remove_index.reverse()
-    # for i in remove_index:
-    #     input_list.pop(i)
-
     return input_list
 
 
+# # method 2: polynomial regression to complete missing data
+def polynomial(input_list, degree, max_value):
+    plt.figure(figsize=(30, 24))
+    for i, year in enumerate(input_list):
+        # skip the year which did not have data
+        if countZero(year) == 6:
+            continue
+        x = []
+        y = []
+        for j, month in enumerate(year):
+            if month[0] != 0:
+                x.append(j + starting_month)
+                y.append(month[0])
+
+        # polynomial regression
+        a = np.polyfit(x, y, degree)
+        fx = np.poly1d(a)
+
+        # use the regression function to complete the missing data
+        for j, month in enumerate(year):
+            if month[0] == 0:
+                input_list[i][j] = [max(fx(j + starting_month), 0)]
+
+        # plot the regression function
+        plt.subplot(4, 4, i + 1)
+        plt.scatter(x, y, color='black')
+        plt.xticks(fontsize=20)
+        plt.yticks(fontsize=20)
+        plt.plot(np.linspace(starting_month, ending_month, 100), fx(np.linspace(starting_month, ending_month, 100)), 'r-', lw=3)
+        plt.xlim(starting_month-0.3, ending_month+0.3)
+        plt.ylim(0, max_value)
+
+    plt.show()
+    return input_list
+
+
+# output the complete excel file
 def outputTable(list1, list2, list3, info_list, table_name):
-    # wb = Workbook()
     sheet = wb.create_sheet(table_name)
     sheet.append(['MIDAS', 'LAKE', 'Town(s)', 'STATION', 'Date', 'DEPTH', 'CHLA (mg/L)', 'TEMPERATURE (Centrigrade)', 'Total P (mg/L)'])
     for i in range(0, len(list1) * len(list1[0])):
-        if list1[i // 6][i % 6][0] != 0 and list2[i // 6][i % 6][0] != 0 and list3[i // 6][i % 6][0] != 0:
+        # if list1[i // 6][i % 6][0] != 0 and list2[i // 6][i % 6][0] != 0 and list3[i // 6][i % 6][0] != 0:
+        if countZero(list1[i // 6]) < 6:
             # append normal information
             row = ['5448', 'China Lake', 'China, Vassalboro']
             # append station
@@ -170,8 +196,6 @@ def outputTable(list1, list2, list3, info_list, table_name):
 
             sheet.append(row)
 
-    # wb.save("./lake_data/completeChinaLake.xlsx")
-
 
 # read the workbook and find overlapped years
 print('[INFO] reading workbook')
@@ -179,43 +203,41 @@ Chla_list, Temp_list, TotalP_list, starting_year, ending_year, depth = read_work
 
 # the rows contains empty cell will be removed
 # Also, the year outside the overlapped period will be removed
-# For Chal table, only 5-10 months will be kept
-# For other tables, only 4-11 months will be kept
+# In addition, only 5-10 months will be kept
 print('[INFO] cleaning data')
 starting_month, ending_month = 5, 10
-data_cleaning(Chla_list, starting_year, ending_year, starting_month, ending_month, depth)
-data_cleaning(Temp_list, starting_year, ending_year, starting_month, ending_month, depth)
-data_cleaning(TotalP_list, starting_year, ending_year, starting_month, ending_month, depth)
+data_cleaning(Chla_list)
+data_cleaning(Temp_list)
+data_cleaning(TotalP_list)
 
-# find the data which need to be completed
-# Temp_complete, TotalP_complete = find_data_needed_completed(Chla_list, Temp_list, TotalP_list)
-
-# initialize empty complete list
-Chla = initializeEmptyList(starting_year, ending_year, starting_month, ending_month)
-Temp = initializeEmptyList(starting_year, ending_year, starting_month, ending_month)
-TotalP = initializeEmptyList(starting_year, ending_year, starting_month, ending_month)
-
-# match data which does not need mean calculation
+# match data which does not need mean calculation for method 1
 print('[INFO] matching data')
-Chla = matchData(Chla_list, Chla)
-Temp = matchData(Temp_list, Temp)
-TotalP = matchData(TotalP_list, TotalP)
+Chla_match_m1 = matchData(Chla_list)
+Temp_match_m1 = matchData(Temp_list)
+TotalP_match_m1 = matchData(TotalP_list)
+# match data which does not need mean calculation for method 2
+Chla_match_m2 = matchData(Chla_list)
+Temp_match_m2 = matchData(Temp_list)
+TotalP_match_m2 = matchData(TotalP_list)
 
 # method 1: mean value calculation
 print('[INFO] mean value calculation')
-Chla = meanCalculation(Chla)
-Temp = meanCalculation(Temp)
-TotalP = meanCalculation(TotalP)
+Chla_mean = meanCalculation(Chla_match_m1)
+Temp_mean = meanCalculation(Temp_match_m1)
+TotalP_mean = meanCalculation(TotalP_match_m1)
 
-# method 2:
+# method 2: polynomial regression
+Chla_poly = polynomial(Chla_match_m2, 1, 0.04)
+Temp_poly = polynomial(Temp_match_m2, 2, 25)
+TotalP_poly = polynomial(TotalP_match_m2, 2, 0.04)
 
 # output table to excel
 wb = Workbook()
-
-outputTable(Chla, Temp, TotalP, Chla_list, 'method 1')
-outputTable(Chla, Temp, TotalP, Chla_list, 'method 2')
-
+outputTable(Chla_mean, Temp_mean, TotalP_mean, Chla_list, 'method 1')
+outputTable(Chla_poly, Temp_poly, TotalP_poly, Chla_list, 'method 2')
 wb.save("./lake_data/completeChinaLake.xlsx")
+
+
 
 
 
