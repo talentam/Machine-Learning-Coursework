@@ -261,6 +261,11 @@ def distcorr(variable1, variable2):
 
 def printRanking(method, temp, totalp):
     print(method + ': temperature (' + str(temp) + '); TotalP (' + str(totalp) + ')')
+    if temp > totalp:
+        print('     temperature is more important ')
+    else:
+        print('     TotalP is more important ')
+
 
 
 # read the workbook and find overlapped years
