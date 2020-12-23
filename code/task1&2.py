@@ -5,15 +5,11 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 from minepy import MINE
 import scipy.stats as stats
-from sklearn.feature_selection import RFE
-from sklearn.linear_model import LinearRegression
 
+from scipy.spatial.distance import correlation
 
 
 # read worksheet and find out the overlapped year
-from sklearn.svm import SVC
-
-
 def read_worksheet(sheetName):
     # store the all the data in the list
     data_list = []
@@ -166,6 +162,7 @@ def polynomial(input_list, degree, max_value):
                 input_list[i][j] = [max(fx(j + starting_month), 0)]
 
         # plot the regression function
+
         # plt.subplot(4, 4, i + 1)
         # plt.scatter(x, y, color='black')
         # plt.xticks(fontsize=20)
@@ -217,17 +214,17 @@ def data_preprocessing(list1, list2, list3):
             continue
         else:
             for j, month in enumerate(year):
-                x.append(month[0])
+                x.append(round(month[0], 4))
 
     for i, year in enumerate(list2):
         if i not in skip_year:
             for j, month in enumerate(year):
-                y.append(month[0])
+                y.append(round(month[0], 1))
 
     for i, year in enumerate(list3):
         if i not in skip_year:
             for j, month in enumerate(year):
-                z.append(month[0])
+                z.append(round(month[0], 3))
 
     return x, y, z
 
@@ -249,30 +246,15 @@ def mine(variable1, variable2):
 
 
 def spearman(variable1, variable2):
-
     return stats.spearmanr(variable1, variable2)[0]
 
 
-def ref(variable1, variable2, variable3):
-    x = []
-    y = []
-    for i in range(len(variable1)):
-        x.append([variable2[i], variable3[i]])
-        y.append([variable1[i]])
-    lr = LinearRegression()
-    rfe = RFE(lr, n_features_to_select=1)
-    rfe.fit(x, y)
-    names = ['temperature', 'TotalP']
-    print(sorted(zip(map(lambda x: round(x, 4), rfe.ranking_), names)))
+def distcorr(variable1, variable2):
+    return correlation(variable1, variable2)
 
 
 def printRanking(method, temp, totalp):
-    if temp > totalp:
-        print(method + ': temperature (' + str(round(temp, 6)) + ') has higher importance than TotalP (' + str(
-            round(totalp, 6)) + ')')
-    else:
-        print(method + ': TotalP (' + str(round(totalp, 6)) + ') has higher importance than temperature (' + str(
-            round(temp, 6)) + ')')
+    print(method + ': temperature (' + str(temp) + '); TotalP (' + str(totalp) + ')')
 
 
 # read the workbook and find overlapped years
@@ -311,8 +293,8 @@ TotalP_poly = polynomial(TotalP_avg_m2, 2, 0.04)
 
 # output table to excel
 wb = Workbook()
-outputTable(Chla_mean, Temp_mean, TotalP_mean, Chla_list, 'method 1')
-outputTable(Chla_poly, Temp_poly, TotalP_poly, Chla_list, 'method 2')
+outputTable(Chla_mean, Temp_mean, TotalP_mean, Chla_list, 'mean value')
+outputTable(Chla_poly, Temp_poly, TotalP_poly, Chla_list, 'polynomial regression')
 wb.save("./lake_data/completeChinaLake.xlsx")
 
 # task 2: using the meaning completed data
@@ -328,18 +310,21 @@ Pearson_Chla_temp = pearson(Chla_mean_data, temp_mean_data)
 Pearson_Chla_TotalP = pearson(Chla_mean_data, TotalP_mean_data)
 printRanking('Pearson', Pearson_Chla_temp, Pearson_Chla_TotalP)
 
-# Mutual information and maximal information coefficient (MIC)
-mine_Chla_temp = mine(Chla_mean_data, temp_mean_data)
-mine_Chla_TotalP = mine(Chla_mean_data, TotalP_mean_data)
-printRanking('MIC', mine_Chla_temp, mine_Chla_TotalP)
-
-# Spearman Coefficient
+# Spearman Correlation Coefficient
 spearman_Chla_temp = spearman(Chla_mean_data, temp_mean_data)
 spearman_Chla_TotalP = spearman(Chla_mean_data, TotalP_mean_data)
 printRanking('Spearman', spearman_Chla_temp, spearman_Chla_TotalP)
 
-# Recursive feature elimination (RFE)
-ref(Chla_mean_data, temp_mean_data, TotalP_mean_data)
+# Distance correlation
+distcorr_Chla_temp = distcorr(Chla_mean_data, temp_mean_data)
+distcorr_Chla_TotalP = distcorr(Chla_mean_data, TotalP_mean_data)
+printRanking('Distance correlation', distcorr_Chla_temp, distcorr_Chla_TotalP)
+
+# Maximal information coefficient (MIC)
+mine_Chla_temp = mine(Chla_mean_data, temp_mean_data)
+mine_Chla_TotalP = mine(Chla_mean_data, TotalP_mean_data)
+printRanking('MIC', mine_Chla_temp, mine_Chla_TotalP)
+
 
 
 
