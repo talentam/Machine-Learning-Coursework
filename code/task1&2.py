@@ -8,6 +8,12 @@ import scipy.stats as stats
 
 from scipy.spatial.distance import correlation
 
+###################################
+# instruction to run the code
+# the root path to run is task1&2.py
+# in other words, "./task1&2.py" can access task1&2.py
+###################################
+
 
 # read worksheet and find out the overlapped year
 def read_worksheet(sheetName):
