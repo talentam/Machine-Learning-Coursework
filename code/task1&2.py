@@ -114,6 +114,77 @@ def countZero(input_list):
     return zero_num
 
 
+def bestMatch(list1, list2, list3, orig_list1, orig_list2, orig_list3):
+    previous_year = 0
+    previous_month = 0
+    previous_day = 0
+    empty_list_chla = initializeEmptyList()
+    empty_list_temp = initializeEmptyList()
+    empty_list_totalP = initializeEmptyList()
+    for row in orig_list1:
+        year = row[1].year
+        month = row[1].month
+        day = row[1].day
+        # prevent reading the same day twice for temp and totalP
+        if year == previous_year and month == previous_month and day == previous_day:
+            continue
+        else:
+            previous_year = year
+            previous_month = month
+            previous_day = day
+
+            index1 = []
+            index2 = []
+            for i, data in enumerate(orig_list2):
+                # match for temp
+                if data[1].year == year and data[1].month == month and data[1].day == day:
+                    index1.append(i)
+                if data[1].year > year:
+                    break
+
+            for i, data in enumerate(orig_list3):
+                # match for totalP
+                if data[1].year == year and data[1].month == month and data[1].day == day:
+                    index2.append(i)
+                if data[1].year > year:
+                    break
+            # find best match
+            if len(index1) != 0 and len(index2) != 0:
+                empty_list_chla[year - starting_year][month - starting_month].append(row[3])
+                for index in index1:
+                    empty_list_temp[orig_list2[index][1].year - starting_year][orig_list2[index][1].month - starting_month].append(orig_list2[index][3])
+                for index in index2:
+                    empty_list_totalP[orig_list3[index][1].year - starting_year][orig_list3[index][1].month - starting_month].append(orig_list3[index][3])
+
+    # calculate the mean of best match
+    year_num = ending_year - starting_year + 1
+    month_num = ending_month - starting_month + 1
+    for i in range(year_num):
+        for j in range(month_num):
+            if len(empty_list_chla[i][j]) == 0:
+                empty_list_chla[i][j] = [0]
+            else:
+                empty_list_chla[i][j] = [np.mean(empty_list_chla[i][j])]
+            if len(empty_list_temp[i][j]) == 0:
+                empty_list_temp[i][j] = [0]
+            else:
+                empty_list_temp[i][j] = [np.mean(empty_list_temp[i][j])]
+            if len(empty_list_totalP[i][j]) == 0:
+                empty_list_totalP[i][j] = [0]
+            else:
+                empty_list_totalP[i][j] = [np.mean(empty_list_totalP[i][j])]
+
+    # update best match
+    for i in range(year_num):
+        for j in range(month_num):
+            if empty_list_chla[i][j][0] != 0 and empty_list_chla[i][j][0] != list1[i][j][0]:
+                list1[i][j][0] = empty_list_chla[i][j][0]
+            if empty_list_temp[i][j][0] != 0 and empty_list_temp[i][j][0] != list2[i][j][0]:
+                list2[i][j][0] = empty_list_temp[i][j][0]
+            if empty_list_totalP[i][j][0] != 0 and empty_list_totalP[i][j][0] != list3[i][j][0]:
+                list3[i][j][0] = empty_list_totalP[i][j][0]
+
+
 # method 1: mean value to complete missing data
 def meanCalculation(input_list):
     month_num = ending_month - starting_month + 1
@@ -144,9 +215,9 @@ def meanCalculation(input_list):
     return input_list
 
 
-# # method 2: polynomial regression to complete missing data
+# method 2: polynomial regression to complete missing data
 def polynomial(input_list, degree, max_value):
-    # plt.figure(figsize=(30, 24))
+    plt.figure(figsize=(30, 24))
     for i, year in enumerate(input_list):
         # skip the year which did not have data
         if countZero(year) == 6:
@@ -169,15 +240,15 @@ def polynomial(input_list, degree, max_value):
 
         # plot the regression function
 
-        # plt.subplot(4, 4, i + 1)
-        # plt.scatter(x, y, color='black')
-        # plt.xticks(fontsize=20)
-        # plt.yticks(fontsize=20)
-        # plt.plot(np.linspace(starting_month, ending_month, 100), fx(np.linspace(starting_month, ending_month, 100)), 'r-', lw=3)
-        # plt.xlim(starting_month-0.3, ending_month+0.3)
-        # plt.ylim(0, max_value)
+        plt.subplot(4, 4, i + 1)
+        plt.scatter(x, y, color='black')
+        plt.xticks(fontsize=20)
+        plt.yticks(fontsize=20)
+        plt.plot(np.linspace(starting_month, ending_month, 100), fx(np.linspace(starting_month, ending_month, 100)), 'r-', lw=3)
+        plt.xlim(starting_month-0.3, ending_month+0.3)
+        plt.ylim(0, max_value)
 
-    # plt.show()
+    plt.show()
     return input_list
 
 
@@ -291,6 +362,9 @@ Chla_avg_m2 = averageData(Chla_list)
 Temp_avg_m2 = averageData(Temp_list)
 TotalP_avg_m2 = averageData(TotalP_list)
 
+bestMatch(Chla_avg_m1, Temp_avg_m1, TotalP_avg_m1, Chla_list, Temp_list, TotalP_list)
+bestMatch(Chla_avg_m2, Temp_avg_m2, TotalP_avg_m2, Chla_list, Temp_list, TotalP_list)
+
 # method 1: mean value calculation
 print('[INFO] mean value calculation')
 Chla_mean = meanCalculation(Chla_avg_m1)
@@ -335,20 +409,3 @@ printRanking('Distance correlation', distcorr_Chla_temp, distcorr_Chla_TotalP)
 mine_Chla_temp = mine(Chla_mean_data, temp_mean_data)
 mine_Chla_TotalP = mine(Chla_mean_data, TotalP_mean_data)
 printRanking('MIC', mine_Chla_temp, mine_Chla_TotalP)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
