@@ -212,7 +212,7 @@ def meanCalculation(input_list):
         # count the zero number
         zero_num = countZero(year)
         while 0 < zero_num < 4:
-            # check condition of 101
+            # check condition of x0y
             for i in range(0, month_num-2):
                 if year[i][0] != 0 and year[i+1][0] == 0 and year[i+2][0] != 0:
                     year[i + 1][0] = max((year[i][0] + year[i + 2][0])/2, 0)
@@ -220,14 +220,14 @@ def meanCalculation(input_list):
                     if zero_num == 0:
                         break
 
-            # check condition of 110 or 011
+            # check condition of yx0 or 0xy
             for i in range(0, month_num - 2):
                 # 110
                 if year[i][0] != 0 and year[i + 1][0] != 0 and year[i + 2][0] == 0:
                     year[i + 2][0] = max(2*year[i + 1][0] - year[i][0], 0)
                     zero_num = zero_num - 1
                     break
-                # 011
+                # 0xy
                 elif year[i][0] == 0 and year[i + 1][0] != 0 and year[i + 2][0] != 0:
                     year[i][0] = max(2 * year[i + 1][0] - year[i+2][0], 0)
                     zero_num = zero_num - 1
