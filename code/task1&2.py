@@ -127,6 +127,7 @@ def bestMatch(list1, list2, list3, orig_list1, orig_list2, orig_list3):
         day = row[1].day
         # prevent reading the same day twice for temp and totalP
         if year == previous_year and month == previous_month and day == previous_day:
+            empty_list_chla[year - starting_year][month - starting_month][-1].append(row[3])
             continue
         else:
             previous_year = year
@@ -150,29 +151,48 @@ def bestMatch(list1, list2, list3, orig_list1, orig_list2, orig_list3):
                     break
             # find best match
             if len(index1) != 0 and len(index2) != 0:
-                empty_list_chla[year - starting_year][month - starting_month].append(row[3])
+                # best match for Chla
+                empty_list_chla[year - starting_year][month - starting_month].append([row[3]])
+                # best match for temp
+                empty = []
                 for index in index1:
-                    empty_list_temp[orig_list2[index][1].year - starting_year][orig_list2[index][1].month - starting_month].append(orig_list2[index][3])
+                    empty.append(orig_list2[index][3])
+                empty_list_temp[orig_list2[index][1].year - starting_year][orig_list2[index][1].month - starting_month].append(empty)
+                # best match for totalP
+                empty = []
                 for index in index2:
-                    empty_list_totalP[orig_list3[index][1].year - starting_year][orig_list3[index][1].month - starting_month].append(orig_list3[index][3])
+                    empty.append(orig_list3[index][3])
+                empty_list_totalP[orig_list3[index][1].year - starting_year][orig_list3[index][1].month - starting_month].append(empty)
 
     # calculate the mean of best match
     year_num = ending_year - starting_year + 1
     month_num = ending_month - starting_month + 1
     for i in range(year_num):
         for j in range(month_num):
+            # mean best match for CHLA
             if len(empty_list_chla[i][j]) == 0:
                 empty_list_chla[i][j] = [0]
             else:
-                empty_list_chla[i][j] = [np.mean(empty_list_chla[i][j])]
+                mean = []
+                for data in empty_list_chla[i][j]:
+                    mean.append(np.mean(data))
+                empty_list_chla[i][j] = [np.mean(mean)]
+            # mean best match for temp
             if len(empty_list_temp[i][j]) == 0:
                 empty_list_temp[i][j] = [0]
             else:
-                empty_list_temp[i][j] = [np.mean(empty_list_temp[i][j])]
+                mean = []
+                for data in empty_list_temp[i][j]:
+                    mean.append(np.mean(data))
+                empty_list_temp[i][j] = [np.mean(mean)]
+            # mean best match for totalP
             if len(empty_list_totalP[i][j]) == 0:
                 empty_list_totalP[i][j] = [0]
             else:
-                empty_list_totalP[i][j] = [np.mean(empty_list_totalP[i][j])]
+                mean = []
+                for data in empty_list_totalP[i][j]:
+                    mean.append(np.mean(data))
+                empty_list_totalP[i][j] = [np.mean(mean)]
 
     # update best match
     for i in range(year_num):
@@ -338,7 +358,6 @@ def printRanking(method, temp, totalp):
         print('     TotalP is more important ')
 
 
-
 # read the workbook and find overlapped years
 print('[INFO] reading workbook')
 Chla_list, Temp_list, TotalP_list, starting_year, ending_year, depth = read_workbook('./lake_data/China lake.xlsx')
@@ -362,6 +381,7 @@ Chla_avg_m2 = averageData(Chla_list)
 Temp_avg_m2 = averageData(Temp_list)
 TotalP_avg_m2 = averageData(TotalP_list)
 
+# find best match
 bestMatch(Chla_avg_m1, Temp_avg_m1, TotalP_avg_m1, Chla_list, Temp_list, TotalP_list)
 bestMatch(Chla_avg_m2, Temp_avg_m2, TotalP_avg_m2, Chla_list, Temp_list, TotalP_list)
 
